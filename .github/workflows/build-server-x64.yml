@@ -30,8 +30,28 @@ jobs:
         uses: actions/checkout@v4
       - name: setup and build
         uses: ./.github/actions/build-images/server
+  build-agent:
+    runs-on: ubuntu-22.04
+    env:
+      ARCH: x64
+      OS: linux
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: setup and build
+        uses: ./.github/actions/build-images/agent
   push-image:
-    needs: [build-server]
+    needs: [build-server, build-agent]
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -45,7 +65,7 @@ jobs:
       - name: Download rancher image
         uses: actions/download-artifact@v4
         with:
-          pattern: "rancher-${{ env.OS }}-${{ env.ARCH }}"
+          pattern: "rancher*-${{ env.OS }}-${{ env.ARCH }}"
           path: /tmp
       - name: Setup Environment Variables
         uses: ./.github/actions/setup-tag-env
@@ -61,28 +81,56 @@ jobs:
           echo "Contents of /tmp:"
           ls -la /tmp/
           
-          # 查找并解压 zip 文件
-          zip_file=$(find /tmp -name "rancher-*.zip" -type f | head -n 1)
+          # 查找并解压 server zip 文件
+          zip_file=$(find /tmp -name "rancher-linux-*.zip" -type f | grep -v agent | head -n 1)
           if [ -n "$zip_file" ]; then
-            echo "Found zip file: $zip_file"
+            echo "Found server zip file: $zip_file"
             unzip -l "$zip_file"
             unzip "$zip_file" -d /tmp/
           fi
           
-          # 查找 tar 文件
-          tar_file=$(find /tmp -name "rancher-*.tar" -type f | head -n 1)
+          # 查找 server tar 文件
+          tar_file=$(find /tmp -name "rancher-linux-*.tar" -type f | grep -v agent | head -n 1)
           if [ -z "$tar_file" ]; then
-            echo "Error: No tar file found!"
+            echo "Error: No server tar file found!"
             exit 1
           fi
           
-          echo "Loading image from: $tar_file"
+          echo "Loading server image from: $tar_file"
           image_id=$(docker load --input "$tar_file" 2>&1 | grep "Loaded image" | awk '{print $NF}')
           if [ -z "$image_id" ]; then
             echo "Error: Failed to load image from tarball!"
             exit 1
           fi
           
-          echo "Loaded image: $image_id"
+          echo "Loaded server image: $image_id"
           docker tag "$image_id" ghcr.io/${{ github.repository_owner }}/rancher:${{ env.TAG }}-${{ env.ARCH }}
           docker push ghcr.io/${{ github.repository_owner }}/rancher:${{ env.TAG }}-${{ env.ARCH }}
+      - name: Push agent image
+        shell: bash
+        run: |
+          # 查找并解压 agent zip 文件
+          zip_file=$(find /tmp -name "rancher-agent-*.zip" -type f | head -n 1)
+          if [ -n "$zip_file" ]; then
+            echo "Found agent zip file: $zip_file"
+            unzip -l "$zip_file"
+            unzip "$zip_file" -d /tmp/
+          fi
+          
+          # 查找 agent tar 文件
+          tar_file=$(find /tmp -name "rancher-agent-*.tar" -type f | head -n 1)
+          if [ -z "$tar_file" ]; then
+            echo "Error: No agent tar file found!"
+            exit 1
+          fi
+          
+          echo "Loading agent image from: $tar_file"
+          image_id=$(docker load --input "$tar_file" 2>&1 | grep "Loaded image" | awk '{print $NF}')
+          if [ -z "$image_id" ]; then
+            echo "Error: Failed to load agent image from tarball!"
+            exit 1
+          fi
+          
+          echo "Loaded agent image: $image_id"
+          docker tag "$image_id" ghcr.io/${{ github.repository_owner }}/rancher-agent:${{ env.TAG }}-${{ env.ARCH }}
+          docker push ghcr.io/${{ github.repository_owner }}/rancher-agent:${{ env.TAG }}-${{ env.ARCH }}
