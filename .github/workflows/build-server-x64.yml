@@ -1,0 +1,30 @@
+name: Build Server x64
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "v2.11.8-hotfix-e3a2"
+env:
+  COMMIT: ${{ github.sha }}
+  AWS_DEFAULT_REGION: "us-east-1"
+  REPOSITORY_OWNER: ${{ github.repository_owner }}
+  IMAGE: ${{ github.repository_owner }}/rancher
+jobs:
+  build-server:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-22.04
+    env:
+      ARCH: x64
+      OS: linux
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Load Secrets from Vault
+        uses: rancher-eio/read-vault-secrets@main
+        with:
+          secrets: |
+            secret/data/github/repo/${{ github.repository }}/rancher-prime-stg-registry/credentials registry | REGISTRY ;
+      - name: setup and build
+        uses: ./.github/actions/build-images/server
