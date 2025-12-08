@@ -9,6 +9,8 @@ env:
   AWS_DEFAULT_REGION: "us-east-1"
   REPOSITORY_OWNER: ${{ github.repository_owner }}
   IMAGE: ${{ github.repository_owner }}/rancher
+  TAG: v2.11.8
+  VERSION: v2.11.8
 jobs:
   build-server:
     runs-on: ubuntu-22.04
