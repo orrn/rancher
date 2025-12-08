@@ -58,10 +58,31 @@ jobs:
       - name: Push server image
         shell: bash
         run: |
-          image_id=$(docker load --input /tmp/rancher-${{ env.OS }}-${{ env.ARCH }}/rancher-${{ env.OS }}-${{ env.ARCH }}.tar 2>&1 | grep "Loaded image" | awk '{print $NF}')
+          echo "Contents of /tmp:"
+          ls -la /tmp/
+          
+          # 查找并解压 zip 文件
+          zip_file=$(find /tmp -name "rancher-*.zip" -type f | head -n 1)
+          if [ -n "$zip_file" ]; then
+            echo "Found zip file: $zip_file"
+            unzip -l "$zip_file"
+            unzip "$zip_file" -d /tmp/
+          fi
+          
+          # 查找 tar 文件
+          tar_file=$(find /tmp -name "rancher-*.tar" -type f | head -n 1)
+          if [ -z "$tar_file" ]; then
+            echo "Error: No tar file found!"
+            exit 1
+          fi
+          
+          echo "Loading image from: $tar_file"
+          image_id=$(docker load --input "$tar_file" 2>&1 | grep "Loaded image" | awk '{print $NF}')
           if [ -z "$image_id" ]; then
             echo "Error: Failed to load image from tarball!"
             exit 1
           fi
+          
+          echo "Loaded image: $image_id"
           docker tag "$image_id" ghcr.io/${{ github.repository_owner }}/rancher:${{ env.TAG }}-${{ env.ARCH }}
           docker push ghcr.io/${{ github.repository_owner }}/rancher:${{ env.TAG }}-${{ env.ARCH }}
