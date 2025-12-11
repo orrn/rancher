@@ -77,12 +77,12 @@ jobs:
         with:
           pattern: "rancher*-${{ env.OS }}-${{ env.ARCH }}"
           path: /tmp/rancher-artifacts
+          merge-multiple: true
       - name: List downloaded artifacts
         shell: bash
         run: |
           echo "Downloaded artifacts:"
-          ls -la /tmp/rancher-artifacts/ || echo "Directory not found"
-          find /tmp/rancher-artifacts -type f 2>/dev/null || echo "No files found"
+          ls -laR /tmp/rancher-artifacts/ || echo "Directory not found"
       - name: Setup Environment Variables
         uses: ./.github/actions/setup-tag-env
       - name: Login to GitHub Container Registry
@@ -94,13 +94,16 @@ jobs:
       - name: Push server image
         shell: bash
         run: |
-          # 直接使用正确的文件路径 (artifact 会解压到子目录)
-          tar_file="/tmp/rancher-artifacts/rancher-${{ env.OS }}-${{ env.ARCH }}/rancher-${{ env.OS }}-${{ env.ARCH }}.tar"
+          # ARCH 会被 build action 转换: x64 -> amd64
+          DOCKER_ARCH="amd64"
+          
+          # download-artifact 会自动解压 zip, 文件直接在根目录
+          tar_file="/tmp/rancher-artifacts/rancher-${{ env.OS }}-${DOCKER_ARCH}.tar"
           
           if [ ! -f "$tar_file" ]; then
             echo "Error: Server tar file not found at $tar_file"
-            echo "Searching for tar files..."
-            find /tmp/rancher-artifacts -name "*.tar" -type f 2>/dev/null
+            echo "Available files:"
+            ls -la /tmp/rancher-artifacts/
             exit 1
           fi
           
@@ -117,13 +120,16 @@ jobs:
       - name: Push agent image
         shell: bash
         run: |
-          # 直接使用正确的文件路径 (artifact 会解压到子目录)
-          tar_file="/tmp/rancher-artifacts/rancher-agent-${{ env.OS }}-${{ env.ARCH }}/rancher-agent-${{ env.OS }}-${{ env.ARCH }}.tar"
+          # ARCH 会被 build action 转换: x64 -> amd64
+          DOCKER_ARCH="amd64"
+          
+          # download-artifact 会自动解压 zip, 文件直接在根目录
+          tar_file="/tmp/rancher-artifacts/rancher-agent-${{ env.OS }}-${DOCKER_ARCH}.tar"
           
           if [ ! -f "$tar_file" ]; then
             echo "Error: Agent tar file not found at $tar_file"
-            echo "Searching for agent tar files..."
-            find /tmp/rancher-artifacts -name "*agent*.tar" -type f 2>/dev/null
+            echo "Available files:"
+            ls -la /tmp/rancher-artifacts/
             exit 1
           fi
           
