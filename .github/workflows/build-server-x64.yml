@@ -68,7 +68,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: "rancher*-${{ env.OS }}-${{ env.ARCH }}"
-          path: /tmp
+          path: /tmp/rancher-artifacts
       - name: Setup Environment Variables
         uses: ./.github/actions/setup-tag-env
       - name: Login to GitHub Container Registry
@@ -80,19 +80,19 @@ jobs:
       - name: Push server image
         shell: bash
         run: |
-          echo "Contents of /tmp:"
-          ls -la /tmp/
+          echo "Contents of /tmp/rancher-artifacts:"
+          ls -la /tmp/rancher-artifacts/
           
           # 查找并解压 server zip 文件
-          zip_file=$(find /tmp -name "rancher-linux-*.zip" -type f | grep -v agent | head -n 1)
+          zip_file=$(find /tmp/rancher-artifacts -name "rancher-linux-*.zip" -type f 2>/dev/null | grep -v agent | head -n 1)
           if [ -n "$zip_file" ]; then
             echo "Found server zip file: $zip_file"
             unzip -l "$zip_file"
-            unzip "$zip_file" -d /tmp/
+            unzip "$zip_file" -d /tmp/rancher-artifacts/
           fi
           
           # 查找 server tar 文件
-          tar_file=$(find /tmp -name "rancher-linux-*.tar" -type f | grep -v agent | head -n 1)
+          tar_file=$(find /tmp/rancher-artifacts -name "rancher-linux-*.tar" -type f 2>/dev/null | grep -v agent | head -n 1)
           if [ -z "$tar_file" ]; then
             echo "Error: No server tar file found!"
             exit 1
@@ -112,15 +112,15 @@ jobs:
         shell: bash
         run: |
           # 查找并解压 agent zip 文件
-          zip_file=$(find /tmp -name "rancher-agent-*.zip" -type f | head -n 1)
+          zip_file=$(find /tmp/rancher-artifacts -name "rancher-agent-*.zip" -type f 2>/dev/null | head -n 1)
           if [ -n "$zip_file" ]; then
             echo "Found agent zip file: $zip_file"
             unzip -l "$zip_file"
-            unzip "$zip_file" -d /tmp/
+            unzip "$zip_file" -d /tmp/rancher-artifacts/
           fi
           
           # 查找 agent tar 文件
-          tar_file=$(find /tmp -name "rancher-agent-*.tar" -type f | head -n 1)
+          tar_file=$(find /tmp/rancher-artifacts -name "rancher-agent-*.tar" -type f 2>/dev/null | head -n 1)
           if [ -z "$tar_file" ]; then
             echo "Error: No agent tar file found!"
             exit 1
