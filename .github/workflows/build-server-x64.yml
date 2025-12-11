@@ -151,11 +151,20 @@ jobs:
         uses: ./.github/actions/rancher-chart/build
   build-installer:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
     env:
       ARCH: x64
       OS: linux
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: build
         uses: ./.github/actions/build-images/installer
