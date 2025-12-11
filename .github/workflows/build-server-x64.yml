@@ -64,11 +64,25 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Convert arch to Docker arch
+        shell: bash
+        run: |
+          if [[ "$ARCH" == "x64" ]]; then
+            echo "DOCKER_ARCH=amd64" >> $GITHUB_ENV
+          else
+            echo "DOCKER_ARCH=$ARCH" >> $GITHUB_ENV
+          fi
       - name: Download rancher image
         uses: actions/download-artifact@v4
         with:
           pattern: "rancher*-${{ env.OS }}-${{ env.ARCH }}"
           path: /tmp/rancher-artifacts
+      - name: List downloaded artifacts
+        shell: bash
+        run: |
+          echo "Downloaded artifacts:"
+          ls -la /tmp/rancher-artifacts/ || echo "Directory not found"
+          find /tmp/rancher-artifacts -type f 2>/dev/null || echo "No files found"
       - name: Setup Environment Variables
         uses: ./.github/actions/setup-tag-env
       - name: Login to GitHub Container Registry
@@ -80,21 +94,13 @@ jobs:
       - name: Push server image
         shell: bash
         run: |
-          echo "Contents of /tmp/rancher-artifacts:"
-          ls -la /tmp/rancher-artifacts/
+          # 直接使用正确的文件路径 (artifact 会解压到子目录)
+          tar_file="/tmp/rancher-artifacts/rancher-${{ env.OS }}-${{ env.ARCH }}/rancher-${{ env.OS }}-${{ env.ARCH }}.tar"
           
-          # 查找并解压 server zip 文件
-          zip_file=$(find /tmp/rancher-artifacts -name "rancher-linux-*.zip" -type f 2>/dev/null | grep -v agent | head -n 1)
-          if [ -n "$zip_file" ]; then
-            echo "Found server zip file: $zip_file"
-            unzip -l "$zip_file"
-            unzip "$zip_file" -d /tmp/rancher-artifacts/
-          fi
-          
-          # 查找 server tar 文件
-          tar_file=$(find /tmp/rancher-artifacts -name "rancher-linux-*.tar" -type f 2>/dev/null | grep -v agent | head -n 1)
-          if [ -z "$tar_file" ]; then
-            echo "Error: No server tar file found!"
+          if [ ! -f "$tar_file" ]; then
+            echo "Error: Server tar file not found at $tar_file"
+            echo "Searching for tar files..."
+            find /tmp/rancher-artifacts -name "*.tar" -type f 2>/dev/null
             exit 1
           fi
           
@@ -111,18 +117,13 @@ jobs:
       - name: Push agent image
         shell: bash
         run: |
-          # 查找并解压 agent zip 文件
-          zip_file=$(find /tmp/rancher-artifacts -name "rancher-agent-*.zip" -type f 2>/dev/null | head -n 1)
-          if [ -n "$zip_file" ]; then
-            echo "Found agent zip file: $zip_file"
-            unzip -l "$zip_file"
-            unzip "$zip_file" -d /tmp/rancher-artifacts/
-          fi
+          # 直接使用正确的文件路径 (artifact 会解压到子目录)
+          tar_file="/tmp/rancher-artifacts/rancher-agent-${{ env.OS }}-${{ env.ARCH }}/rancher-agent-${{ env.OS }}-${{ env.ARCH }}.tar"
           
-          # 查找 agent tar 文件
-          tar_file=$(find /tmp/rancher-artifacts -name "rancher-agent-*.tar" -type f 2>/dev/null | head -n 1)
-          if [ -z "$tar_file" ]; then
-            echo "Error: No agent tar file found!"
+          if [ ! -f "$tar_file" ]; then
+            echo "Error: Agent tar file not found at $tar_file"
+            echo "Searching for agent tar files..."
+            find /tmp/rancher-artifacts -name "*agent*.tar" -type f 2>/dev/null
             exit 1
           fi
           
@@ -136,3 +137,25 @@ jobs:
           echo "Loaded agent image: $image_id"
           docker tag "$image_id" ghcr.io/${{ github.repository_owner }}/rancher-agent:${{ env.TAG }}-${{ env.ARCH }}
           docker push ghcr.io/${{ github.repository_owner }}/rancher-agent:${{ env.TAG }}-${{ env.ARCH }}
+  build-publish-chart:
+    needs: [push-image]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    env:
+      ARCH: amd64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: setup and build
+        uses: ./.github/actions/rancher-chart/build
+  build-installer:
+    runs-on: ubuntu-22.04
+    env:
+      ARCH: x64
+      OS: linux
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: build
+        uses: ./.github/actions/build-images/installer
