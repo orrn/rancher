@@ -75,7 +75,7 @@ jobs:
       - name: Download rancher image
         uses: actions/download-artifact@v4
         with:
-          pattern: "rancher*-${{ env.OS }}-${{ env.ARCH }}"
+          pattern: "rancher*-${{ env.OS }}-amd64"
           path: /tmp/rancher-artifacts
           merge-multiple: true
       - name: List downloaded artifacts
